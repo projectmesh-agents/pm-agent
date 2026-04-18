@@ -1,91 +1,113 @@
 # pm-agent
 
-A PM agent template for [Project Mesh](https://github.com/projectmesh-io/mesh). Takes ambiguous asks and produces spec-ready work items. Operates autonomously via the Ralph Loop.
+PM template for [Project Mesh](https://github.com/projectmesh-io/mesh). Takes ambiguous asks and produces spec-ready work items. Runs autonomously via the Ralph Loop; optionally listens on Discord.
 
-## What it does
-
-- Periodically checks `mesh work-item list --assigned-to-me`.
-- For items in `inbox` / `clarifying`: scopes them, writes specs, asks clarifying questions, updates status.
-- For items in `spec_ready`: verifies acceptance criteria, hands off to DevLead.
-- Stops there — downstream phases are handled by other agent roles.
-
-Does NOT write production code. Scopes, specs, clarifies, hands off.
-
-## Quickstart
-
-On a machine with the `mesh` CLI and a running `mesh node start`:
+## One-line run
 
 ```bash
 mesh run --template github.com/projectmesh-agents/pm-agent --name pm
-mesh attach pm          # watch it work
 ```
 
-Or pin to a specific version:
+That's it. The PM is now running on your node, polling its work-item queue, writing specs, and handing off ready items to DevLead. `mesh ps` shows it. `mesh attach pm` opens its live terminal.
+
+## Add Discord with three flags
+
+Get a bot token from https://discord.com/developers/applications, invite the bot to your server (Send Messages, Read Messages, View Channel), and grab the channel ID from Discord (enable Developer Mode → right-click channel → Copy ID).
 
 ```bash
-mesh run --template github.com/projectmesh-agents/pm-agent@v0.1.0 --name pm
+DISCORD_BOT_TOKEN=your-bot-token \
+mesh run --template github.com/projectmesh-agents/pm-agent --name pm \
+  --set discord.enabled=true \
+  --set discord.channelId=123456789012345678
 ```
 
-Once the PM agent is running, assign work to it by creating work items with `owner_role=pm` and `current_owner=<agent-name>` (or `pm`):
+The PM will connect to the channel, listen for messages, and reply to you inline. Allow-list users or roles with `--set discord.allowedUsers='["111","222"]'` or `--set discord.allowedRoles='["333"]'`.
 
+## Common tweaks
+
+Cheaper model:
 ```bash
-mesh work-item create "Rework auth flow for CLI" project <project-id> --owner-role pm
+mesh run ... --set model=claude-sonnet-4-6
 ```
 
-The agent's next tick will pick it up.
+Respond faster to changes (15 s active, 60 s idle):
+```bash
+mesh run ... --set cadence.activeSeconds=15 --set cadence.idleSeconds=60
+```
 
-## Configuration
+Only respond when @'d in Discord:
+```bash
+mesh run ... --set discord.enabled=true --set discord.channelId=... --set discord.requireMention=true
+```
 
-### Model / tools
-
-Defined in `agent.yaml`. The defaults are:
-- `claude-opus-4-7`
-- `Read, Write, Edit, Bash, Grep, Glob, WebFetch, Task`
-
-Change the model (e.g. to `claude-sonnet-4-6` for cheaper scoping) by editing `agent.yaml` in your fork.
-
-### Dangerously-skip-permissions
-
-Set to `true` so the agent operates unattended. The agent's role is scoping, not production changes, so the blast radius of tool calls is low — it reads code, runs `mesh work-item` commands, and writes specs. If you prefer to review each permission prompt, set it to `false`.
-
-### Add Discord
-
-To let the PM take clarifying questions over Discord, add a channel block to `agent.yaml` in your fork:
+Use a values file instead of flags:
 
 ```yaml
-spec:
-  # ... existing fields ...
-  requiredEnv:
-    - DISCORD_BOT_TOKEN
-  channels:
-    - type: discord
-      config:
-        channelId: "YOUR_DISCORD_CHANNEL_ID"
-        tokenEnv: DISCORD_BOT_TOKEN
-        inboundPrefix: user
-        # Optional allow-list: only these users/roles can talk to the PM
-        allowedUsers: []
-        allowedRoles: []
-        requireMention: false
+# my-pm.yaml
+model: claude-sonnet-4-6
+discord:
+  enabled: true
+  channelId: "123456789012345678"
+  requireMention: true
+  allowedRoles: ["987654321098765432"]
+cadence:
+  activeSeconds: 30
+  idleSeconds: 180
 ```
-
-Then:
 
 ```bash
-DISCORD_BOT_TOKEN=… mesh run --template <your-fork> --name pm
+mesh run --template github.com/projectmesh-agents/pm-agent --name pm --values my-pm.yaml
 ```
 
-The PM's system prompt already tells it to periodically call `discord_receive_next` and reply via `discord_send_message`, so Discord flow works out of the box once the channel is configured.
+## What the PM does (and doesn't)
+
+**Does**:
+- Polls `mesh work-item list --assigned-to-me` at its configured cadence.
+- Moves items `inbox` → `clarifying` → `spec_ready` → hand off to DevLead.
+- Writes specs in the Mesh spec format (outcome / scope / affected / criteria / open questions).
+- Asks clarifying questions on ambiguous requests.
+- Via Discord (optional): answers questions, scopes new asks, gives status updates.
+
+**Doesn't**:
+- Write production code. Hand-offs to DevLead / Builder for that.
+- Make architectural decisions in isolation — surfaces tradeoffs, lets the human / DevLead pick.
+- Touch items past `ready_for_devlead` — downstream roles own those.
+- Auto-approve its own specs without acceptance criteria.
+
+## Values reference
+
+All keys have defaults; override any subset.
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `model` | `claude-opus-4-7` | Claude model. `claude-sonnet-4-6` is 20% the cost, still good. |
+| `autonomous` | `true` | `--dangerously-skip-permissions` on the claude CLI. Keep true for unattended Ralph Loop. |
+| `cadence.activeSeconds` | `60` | Poll cadence when items are in the queue. |
+| `cadence.idleSeconds` | `300` | Poll cadence when queue is empty. |
+| `discord.enabled` | `false` | Enable Discord channel. Requires `channelId` + `DISCORD_BOT_TOKEN`. |
+| `discord.channelId` | `""` | Snowflake ID of the Discord channel. |
+| `discord.tokenEnv` | `DISCORD_BOT_TOKEN` | Env var holding the bot token. |
+| `discord.requireMention` | `false` | Only respond when the bot is @-mentioned. |
+| `discord.allowedUsers` | `[]` | Allow-list of Discord user IDs. Empty = anyone in the channel. |
+| `discord.allowedRoles` | `[]` | Allow-list of Discord role IDs. Empty = anyone. |
+| `whatsapp.enabled` | `false` | Placeholder — ships when the WhatsApp channel-server lands. |
+
+## Updating
+
+To pull the latest template version without recreating the agent:
+
+```bash
+mesh update pm
+```
+
+That re-fetches the template git SHA and re-renders with the values that were in effect at `mesh run` time. If the template ships prompt or flow changes, the running agent restarts on the new version (same Claude conversation preserved).
 
 ## Files
 
-- `agent.yaml` — template manifest (model, tools, channels).
-- `system_prompt.md` — the PM's role, tools, rules, and the Ralph Loop polling loop it follows.
+- `values.yaml` — defaults for everything a user might tweak.
+- `agent.yaml.tmpl` — template manifest; renders `channels:` and `requiredEnv:` based on `discord.enabled` / `whatsapp.enabled`.
+- `system_prompt.md.tmpl` — system prompt; varies based on whether Discord is enabled so the agent knows to poll the Discord tools.
 
 ## Versioning
 
-Tags follow semver. Breaking prompt changes (e.g. new required tools, changed workflow rules) bump the major version. `mesh run --template <repo>@v0.1` pins to `v0.1.*`.
-
-## Contributing
-
-Fork, edit `system_prompt.md`, test against a throwaway project, tag a release. A pattern that works well: keep the base template minimal and use agent-specific forks for heavy customization.
+Tags follow semver. Breaking prompt / values changes bump the major. Pin with `--template github.com/projectmesh-agents/pm-agent@v0.1.0`.

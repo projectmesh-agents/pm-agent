@@ -1,0 +1,56 @@
+apiVersion: mesh.io/v1
+kind: AgentTemplate
+metadata:
+  name: pm-agent
+  version: {{ .Values.version | default "0.1.0" | quote }}
+spec:
+  description: >
+    PM agent for Project Mesh. Takes fuzzy asks and produces spec-ready
+    work items. Operates autonomously via the Ralph Loop.
+
+  model: {{ .Values.model | default "claude-opus-4-7" }}
+
+  tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebFetch
+    - Task
+
+  dangerouslySkipPermissions: {{ .Values.autonomous | default true }}
+
+  systemPromptPath: system_prompt.md
+
+  requiredEnv:
+{{- if .Values.discord.enabled }}
+    - {{ .Values.discord.tokenEnv | default "DISCORD_BOT_TOKEN" }}
+{{- end }}
+{{- if .Values.whatsapp.enabled }}
+    - {{ .Values.whatsapp.tokenEnv | default "WHATSAPP_TOKEN" }}
+{{- end }}
+
+  channels:
+{{- if .Values.discord.enabled }}
+    - type: discord
+      config:
+        channelId: {{ .Values.discord.channelId | quote }}
+        tokenEnv: {{ .Values.discord.tokenEnv | default "DISCORD_BOT_TOKEN" | quote }}
+        inboundPrefix: user
+        requireMention: {{ .Values.discord.requireMention | default false }}
+        allowedUsers:
+{{- range .Values.discord.allowedUsers }}
+          - {{ . | quote }}
+{{- end }}
+        allowedRoles:
+{{- range .Values.discord.allowedRoles }}
+          - {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- if .Values.whatsapp.enabled }}
+    - type: whatsapp
+      config:
+        tokenEnv: {{ .Values.whatsapp.tokenEnv | default "WHATSAPP_TOKEN" | quote }}
+{{- end }}

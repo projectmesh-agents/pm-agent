@@ -1,0 +1,46 @@
+# pm-agent — default values
+#
+# Override any of these via `--values file.yaml` or `--set key=value` on
+# `mesh run`. Values are deep-merged: set what you want to change, leave
+# the rest alone.
+
+version: "0.1.0"
+
+# Claude model.
+#   claude-opus-4-7   — best quality scoping. Higher cost.  (default)
+#   claude-sonnet-4-6 — ~20% the cost of opus, very capable for PM work.
+#   claude-haiku-4-5  — fastest and cheapest; fine for short clarifying loops.
+model: claude-opus-4-7
+
+# Unattended operation. PM work is scoping + spec writing, so the blast
+# radius of tool calls is small. Keep true unless you want to review each
+# permission prompt during development.
+autonomous: true
+
+# Ralph Loop tick cadence, in seconds.
+#   activeSeconds — how often to check the queue when there's work in flight.
+#   idleSeconds   — how often to check when the queue is empty.
+cadence:
+  activeSeconds: 60
+  idleSeconds: 300
+
+# Discord integration. To enable, set enabled=true + channelId, and make
+# sure DISCORD_BOT_TOKEN (or whatever you name tokenEnv) is set in the
+# env when `mesh run` is invoked.
+discord:
+  enabled: false
+  channelId: ""
+  tokenEnv: DISCORD_BOT_TOKEN
+  # If true, the PM only responds when the bot is @-mentioned. Useful in
+  # busy general channels.
+  requireMention: false
+  # Restrict who can talk to the PM. Empty lists = anyone in the channel.
+  # Either list being non-empty flips to allow-list mode; both set = OR.
+  allowedUsers: []
+  allowedRoles: []
+
+# WhatsApp integration (placeholder). The WhatsApp channel server isn't
+# shipped yet — flipping this to true will error until it lands.
+whatsapp:
+  enabled: false
+  tokenEnv: WHATSAPP_TOKEN
