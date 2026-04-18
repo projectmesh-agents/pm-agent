@@ -40,14 +40,8 @@ spec:
         tokenEnv: {{ .Values.discord.tokenEnv | default "DISCORD_BOT_TOKEN" | quote }}
         inboundPrefix: user
         requireMention: {{ .Values.discord.requireMention | default false }}
-        allowedUsers:
-{{- range .Values.discord.allowedUsers }}
-          - {{ . | quote }}
-{{- end }}
-        allowedRoles:
-{{- range .Values.discord.allowedRoles }}
-          - {{ . | quote }}
-{{- end }}
+        allowedUsers: {{ .Values.discord.allowedUsers | toJson }}
+        allowedRoles: {{ .Values.discord.allowedRoles | toJson }}
 {{- end }}
 {{- if .Values.whatsapp.enabled }}
     - type: whatsapp
