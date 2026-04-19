@@ -10,9 +10,27 @@ mesh run --template github.com/projectmesh-agents/pm-agent --name pm
 
 That's it. The PM is now running on your node, polling its work-item queue, writing specs, and handing off ready items to DevLead. `mesh ps` shows it. `mesh attach pm` opens its live terminal.
 
-## Add Discord with three flags
+## Add Discord
 
 Get a bot token from https://discord.com/developers/applications, invite the bot to your server (Send Messages, Read Messages, View Channel), and grab the channel ID from Discord (enable Developer Mode → right-click channel → Copy ID).
+
+Keep secrets out of your shell history with an `.env` file:
+
+```env
+# secrets.env  (do not commit)
+DISCORD_BOT_TOKEN=your-real-bot-token
+```
+
+Then:
+
+```bash
+mesh run --template github.com/projectmesh-agents/pm-agent --name pm \
+  --env-file secrets.env \
+  --set discord.enabled=true \
+  --set discord.channelId=123456789012345678
+```
+
+Or, if you prefer shell-inline:
 
 ```bash
 DISCORD_BOT_TOKEN=your-bot-token \
@@ -21,7 +39,7 @@ mesh run --template github.com/projectmesh-agents/pm-agent --name pm \
   --set discord.channelId=123456789012345678
 ```
 
-The PM will connect to the channel, listen for messages, and reply to you inline. Allow-list users or roles with `--set discord.allowedUsers='["111","222"]'` or `--set discord.allowedRoles='["333"]'`.
+Allow-list users or roles with `--set discord.allowedUsers='["111","222"]'` or `--set discord.allowedRoles='["333"]'`.
 
 ## Common tweaks
 
@@ -56,8 +74,14 @@ cadence:
 ```
 
 ```bash
-mesh run --template github.com/projectmesh-agents/pm-agent --name pm --values my-pm.yaml
+mesh run --template github.com/projectmesh-agents/pm-agent --name pm \
+  --values my-pm.yaml \
+  --env-file secrets.env
 ```
+
+Rule of thumb:
+- **`--values`** — template-shape settings (model, which channels to enable, allow-lists). Commit these.
+- **`--env-file`** — secrets (bot tokens, API keys). Gitignore these.
 
 ## What the PM does (and doesn't)
 
