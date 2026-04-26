@@ -2,11 +2,12 @@ apiVersion: mesh.io/v1
 kind: AgentTemplate
 metadata:
   name: pm-agent
-  version: {{ .Values.version | default "0.1.0" | quote }}
+  version: {{ .Values.version | default "0.2.0" | quote }}
 spec:
   description: >
     PM agent for Project Mesh. Takes fuzzy asks and produces spec-ready
-    work items. Operates autonomously via the Ralph Loop.
+    work items. Operates autonomously via the Ralph Loop. Reachable from
+    other mesh agents via peers://agent/pm-agent or peers://team/pm.
 
   model: {{ .Values.model | default "claude-opus-4-7" }}
 
@@ -18,26 +19,27 @@ spec:
     - Grep
     - Glob
     - WebFetch
+    - WebSearch
     - Task
 
   dangerouslySkipPermissions: {{ .Values.autonomous | default true }}
 
   systemPromptPath: system_prompt.md
 
-  requiredEnv:
-{{- if .Values.discord.enabled }}
-    - {{ .Values.discord.tokenEnv | default "DISCORD_BOT_TOKEN" }}
-{{- end }}
-{{- if .Values.whatsapp.enabled }}
-    - {{ .Values.whatsapp.tokenEnv | default "WHATSAPP_TOKEN" }}
-{{- end }}
-
   channels:
 {{- if .Values.discord.enabled }}
     - type: discord
       config:
+        # Pre-paired Discord account name (managed via `mesh discord pair`).
+        # The bot token lives in ~/.mesh/discord-accounts/<account>/token.txt
+        # — never declared in this template.
+        account: {{ .Values.discord.account | quote }}
+{{- if eq (.Values.discord.subscriptionMode | default "channel") "guild" }}
+        subscriptionMode: guild
+        guildId: {{ .Values.discord.guildId | quote }}
+{{- else }}
         channelId: {{ .Values.discord.channelId | quote }}
-        tokenEnv: {{ .Values.discord.tokenEnv | default "DISCORD_BOT_TOKEN" | quote }}
+{{- end }}
         inboundPrefix: user
         requireMention: {{ .Values.discord.requireMention | default false }}
         allowedUsers: {{ .Values.discord.allowedUsers | toJson }}
@@ -46,5 +48,14 @@ spec:
 {{- if .Values.whatsapp.enabled }}
     - type: whatsapp
       config:
-        tokenEnv: {{ .Values.whatsapp.tokenEnv | default "WHATSAPP_TOKEN" | quote }}
+        # Pre-paired WhatsApp account (managed via `mesh whatsapp pair`).
+        # store.db lives in ~/.mesh/whatsapp-accounts/<account>/.
+        account: {{ .Values.whatsapp.account | quote }}
+        chatJid: {{ .Values.whatsapp.chatJid | quote }}
+{{- end }}
+{{- if .Values.peers.enabled | default true }}
+    - type: peers
+      config:
+        scope: {{ .Values.peers.scope | default "machine" | quote }}
+        teams: {{ .Values.peers.teams | toJson }}
 {{- end }}

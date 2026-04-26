@@ -4,7 +4,7 @@
 # `mesh run`. Values are deep-merged: set what you want to change, leave
 # the rest alone.
 
-version: "0.1.0"
+version: "0.2.0"
 
 # Claude model.
 #   claude-opus-4-7   — best quality scoping. Higher cost.  (default)
@@ -24,13 +24,18 @@ cadence:
   activeSeconds: 60
   idleSeconds: 300
 
-# Discord integration. To enable, set enabled=true + channelId, and make
-# sure DISCORD_BOT_TOKEN (or whatever you name tokenEnv) is set in the
-# env when `mesh run` is invoked.
+# Discord integration. Spec 12 v2 model: pair the bot once via
+# `mesh discord pair --account <name> --token <token>`, then reference
+# the account here. The token never appears in this file.
+#
+# subscriptionMode: "channel" (one specific channel) or "guild" (whole
+# server, gated by Discord's per-channel permissions).
 discord:
   enabled: false
-  channelId: ""
-  tokenEnv: DISCORD_BOT_TOKEN
+  account: ""
+  subscriptionMode: channel
+  channelId: ""              # required when subscriptionMode=channel
+  guildId: ""                # required when subscriptionMode=guild
   # If true, the PM only responds when the bot is @-mentioned. Useful in
   # busy general channels.
   requireMention: false
@@ -39,8 +44,20 @@ discord:
   allowedUsers: []
   allowedRoles: []
 
-# WhatsApp integration (placeholder). The WhatsApp channel server isn't
-# shipped yet — flipping this to true will error until it lands.
+# WhatsApp integration. Spec 14 / spec 15 slice 2. Pair once via
+# `mesh whatsapp pair --account <name>` (QR scan from your phone),
+# then reference the paired account + a specific chat JID here.
 whatsapp:
   enabled: false
-  tokenEnv: WHATSAPP_TOKEN
+  account: ""
+  chatJid: ""                # e.g. "120363xxx@g.us" (group) or
+                             # "<number>@s.whatsapp.net" (DM)
+
+# Peers — agent-to-agent messaging across the local mesh node.
+# Spec 15 slice 3. Enabled by default so the PM is always reachable
+# from other mesh agents at peers://agent/pm-agent. Add team names
+# to also receive broadcasts to peers://team/<name>.
+peers:
+  enabled: true
+  scope: machine             # only "machine" supported in slice 3
+  teams: [pm]                # add e.g. "design", "research" to widen reach
